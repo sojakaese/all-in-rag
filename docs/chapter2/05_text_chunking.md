@@ -169,6 +169,8 @@ splitter = RecursiveCharacterTextSplitter.from_language(
 
 递归字符分块的原理是采用一组有层次结构的分隔符（如段落、句子、单词）进行递归分割，旨在有效平衡语义完整性与块大小控制。在 `RecursiveCharacterTextSplitter` 的实现中，该分块器首先尝试使用最高优先级的分隔符（如段落标记）来切分文本。如果切分后的块仍然过大，会继续对这个大块应用下一优先级分隔符（如句号），如此循环往复，直到块满足大小限制。这种分层处理的机制，能够在尽可能保持高级语义结构完整性的同时，有效控制块大小。
 
+> **完整代码文件**：[`03_recursive_character_splitter.py`](https://github.com/datawhalechina/all-in-rag/blob/main/code/C2/03_recursive_character_splitter.py)
+
 ### 3.3 语义分块
 
 语义分块（Semantic Chunking）是一种更智能的方法，这种方法不依赖于固定的字符数或预设的分隔符，而是尝试根据文本的语义内涵来切分。其核心是：**在语义主题发生显著变化的地方进行切分**。这使得每个分块都具有高度的内部语义一致性。
@@ -236,6 +238,8 @@ documents = loader.load()
 docs = text_splitter.split_documents(documents)
 ```
 
+> **完整代码文件**：[`04_semantic_chunker.py`](https://github.com/datawhalechina/all-in-rag/blob/main/code/C2/04_semantic_chunker.py)
+
 ### 3.4 基于文档结构的分块
 
 对于具有明确结构标记的文档格式（如Markdown、HTML、LaTex），可以利用这些标记来实现更智能、更符合逻辑的分割。
@@ -255,6 +259,30 @@ docs = text_splitter.split_documents(documents)
     2.  第二步，对这些逻辑块再应用 `RecursiveCharacterTextSplitter`，将其进一步切分为符合 `chunk_size` 要求的小块。由于这个过程是在第一步之后进行的，所有最终生成的小块都会**继承**来自第一步的标题元数据。
 
 - **RAG应用优势**: 这种两阶段的分块方法，既保留了文档的宏观逻辑结构（通过元数据），又确保了每个块的大小适中，是处理结构化文档进行RAG的理想方案。
+
+**具体示例如下**
+
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.text_splitter import MarkdownHeaderTextSplitter
+from langchain_community.document_loaders import TextLoader
+
+# 先初始化两个不同的文本分割器
+markdown_header_splitter = MarkdownHeaderTextSplitter( headers_to_split_on=[("#", "Header 1"), ("##", "Header 2")] )
+recursive_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=20)
+
+# 1. 加载markdown文档的内容到 markdown_text
+loader = TextLoader("../../data/C2/md/Ninety-Three.md", encoding="utf-8")
+markdown_text = loader.load()[0].page_content
+
+# 2. 先按Markdown标题拆分，得到大块文本列表，这个列表内并非文本，而是一列Document对象，封装了文本和相应的元数据。
+chunks_by_markdown_header = markdown_header_splitter.split_text(markdown_text)
+
+# 3. 对每个含有元数据的大块，再用RecursiveCharacterTextSplitter做细粒度拆分，结果即为先按标题再按字符递归细分的文本块
+final_chunks = recursive_splitter.split_documents(chunks_by_markdown_header)
+```
+
+> **完整代码文件**：[`05_multiple_splitter_solution.py`](https://github.com/datawhalechina/all-in-rag/blob/main/code/C2/05_multiple_splitter_solution.py)
 
 ## 四、其他开源框架中的分块策略
 
